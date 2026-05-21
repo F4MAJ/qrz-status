@@ -4,8 +4,11 @@
 """
 Mise à jour du badge D-STAR F4MAJ pour QRZ.
 
-Le script vérifie le dashboard XLX933 et génère :
-docs/dstar-f4maj.svg
+Objectif :
+- détecter si F4MAJ est visible sur le dashboard XLX933
+- détecter le vrai module du réflecteur depuis la colonne du dashboard
+- ne pas confondre F4MAJ-B avec le module B
+- générer docs/dstar-f4maj.svg
 """
 
 from __future__ import annotations
@@ -14,17 +17,70 @@ import html
 import re
 import urllib.error
 import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 
 
 CALLSIGN = "F4MAJ"
 
 DASHBOARD_URLS = [
+    "http://xlx933.hamdigital.fr/index.php",
     "http://xlx933.hamdigital.fr/index.php?show=mod",
+    "https://xlx933.hamdigital.fr/index.php",
     "https://xlx933.hamdigital.fr/index.php?show=mod",
 ]
 
 OUTPUT_FILE = Path("docs/dstar-f4maj.svg")
+
+
+class SimpleTableParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.tables: list[list[list[str]]] = []
+        self._current_table: list[list[str]] | None = None
+        self._current_row: list[str] | None = None
+        self._current_cell: list[str] | None = None
+        self._in_table = False
+        self._in_cell = False
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        tag = tag.lower()
+
+        if tag == "table":
+            self._in_table = True
+            self._current_table = []
+
+        elif tag == "tr" and self._in_table:
+            self._current_row = []
+
+        elif tag in ("td", "th") and self._current_row is not None:
+            self._in_cell = True
+            self._current_cell = []
+
+    def handle_data(self, data: str) -> None:
+        if self._in_cell and self._current_cell is not None:
+            self._current_cell.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+
+        if tag in ("td", "th") and self._in_cell:
+            cell = " ".join("".join(self._current_cell or []).split())
+            if self._current_row is not None:
+                self._current_row.append(cell)
+            self._current_cell = None
+            self._in_cell = False
+
+        elif tag == "tr" and self._current_row is not None:
+            if self._current_table is not None and self._current_row:
+                self._current_table.append(self._current_row)
+            self._current_row = None
+
+        elif tag == "table" and self._current_table is not None:
+            if self._current_table:
+                self.tables.append(self._current_table)
+            self._current_table = None
+            self._in_table = False
 
 
 def fetch_dashboard() -> tuple[str | None, str | None]:
@@ -35,7 +91,7 @@ def fetch_dashboard() -> tuple[str | None, str | None]:
             request = urllib.request.Request(
                 url,
                 headers={
-                    "User-Agent": "F4MAJ-QRZ-DSTAR-Status/1.0",
+                    "User-Agent": "F4MAJ-QRZ-DSTAR-Status/1.1",
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 },
             )
@@ -59,31 +115,59 @@ def html_to_text(source: str) -> str:
     return " ".join(source.split())
 
 
-def detect_module(text: str) -> str | None:
-    upper = text.upper()
-    callsign = CALLSIGN.upper()
-
-    idx = upper.find(callsign)
-    if idx < 0:
-        return None
-
-    window = text[max(0, idx - 500): idx + 900]
-    window_upper = window.upper()
+def extract_module_from_header(header_text: str) -> str | None:
+    """
+    Détecte le module depuis un titre de colonne du dashboard.
+    Exemple :
+    - France DSTAR C (57) -> C
+    - Europe B (1) -> B
+    - XLX933 P -> P
+    """
+    text = header_text.upper()
 
     patterns = [
-        r"XLX933\s*[- ]?\s*([A-Z])\b",
-        r"MODULE\s*[:\- ]\s*([A-Z])\b",
-        r"MOD\s*[:\- ]\s*([A-Z])\b",
-        r"\b([A-Z])\s+" + re.escape(callsign) + r"\b",
-        re.escape(callsign) + r"\s+([A-Z])\b",
+        r"\bFRANCE\s+DSTAR\s+([A-Z])\b",
+        r"\bDSTAR\s+([A-Z])\b",
+        r"\bD-STAR\s+([A-Z])\b",
+        r"\bXLX933\s*([A-Z])\b",
+        r"\b([A-Z])\s*\(\d+\)",
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, window_upper)
+        match = re.search(pattern, text)
         if match:
             letter = match.group(1)
             if len(letter) == 1 and "A" <= letter <= "Z":
                 return letter
+
+    return None
+
+
+def detect_module_from_tables(source: str) -> str | None:
+    """
+    Détecte le vrai module en regardant dans quelle colonne se trouve F4MAJ.
+    Cela évite de confondre F4MAJ-B avec le module B.
+    """
+    parser = SimpleTableParser()
+    parser.feed(source)
+
+    callsign_pattern = re.compile(
+        r"\b" + re.escape(CALLSIGN) + r"(?:-[A-Z0-9])?\b",
+        re.IGNORECASE,
+    )
+
+    for table in parser.tables:
+        for row_index, row in enumerate(table):
+            for col_index, cell in enumerate(row):
+                if not callsign_pattern.search(cell):
+                    continue
+
+                for header_index in range(row_index - 1, -1, -1):
+                    header_row = table[header_index]
+                    if col_index < len(header_row):
+                        module = extract_module_from_header(header_row[col_index])
+                        if module:
+                            return module
 
     return None
 
@@ -103,7 +187,12 @@ def get_status() -> dict[str, str | None]:
     text = html_to_text(source)
     upper = text.upper()
 
-    if CALLSIGN.upper() not in upper:
+    callsign_pattern = re.compile(
+        r"\b" + re.escape(CALLSIGN) + r"(?:-[A-Z0-9])?\b",
+        re.IGNORECASE,
+    )
+
+    if not callsign_pattern.search(upper):
         return {
             "state": "OFFLINE",
             "module": None,
@@ -112,7 +201,7 @@ def get_status() -> dict[str, str | None]:
             "detail": "callsign not found",
         }
 
-    module = detect_module(text)
+    module = detect_module_from_tables(source)
 
     if module:
         return {
@@ -135,6 +224,7 @@ def get_status() -> dict[str, str | None]:
 def svg_escape(value: str | None) -> str:
     if value is None:
         return ""
+
     return (
         value.replace("&", "&amp;")
         .replace("<", "&lt;")

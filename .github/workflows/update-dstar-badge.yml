@@ -2,15 +2,18 @@ name: Update D-STAR badge
 
 on:
   workflow_dispatch:
+
   schedule:
-    - cron: "*/5 * * * *"
+    # Toutes les 10 minutes environ
+    # Horaires en UTC
+    - cron: "3,13,23,33,43,53 * * * *"
 
 permissions:
   contents: write
 
 concurrency:
   group: update-dstar-badge
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update-dstar-badge:
@@ -19,13 +22,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.x"
 
       - name: Update D-STAR badge
         run: python scripts/update_dstar_badge.py
@@ -33,14 +34,12 @@ jobs:
       - name: Commit badge if changed
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add docs/dstar-f4maj.svg
-
-          if git diff --staged --quiet; then
-            echo "No badge change."
+          if git diff --quiet docs/dstar-f4maj.svg; then
+            echo "No D-STAR badge change."
           else
+            git add docs/dstar-f4maj.svg
             git commit -m "Update D-STAR badge"
-            git pull --rebase origin main
             git push
           fi

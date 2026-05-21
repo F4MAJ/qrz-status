@@ -2,17 +2,19 @@
 # -*- coding: utf-8 -*-
 
 """
-Génère un badge météo SVG pour la page QRZ F4MAJ.
+Génère le badge météo SVG pour la page QRZ F4MAJ.
 
-Sortie :
-docs/meteo-f4maj.svg
-
-Source météo :
-Open-Meteo, position approximative Illzach / JN37QS.
+Version V2 :
+- source météo : Open-Meteo, position approximative Illzach / JN37QS
+- affichage QRZ sans iframe ni widget externe
+- "Mise à jour" = heure réelle de génération du badge par GitHub Actions
+- "Mesure" = heure de la donnée météo renvoyée par Open-Meteo
+- sortie : docs/meteo-f4maj.svg
 """
 
 from __future__ import annotations
 
+import html
 import json
 import urllib.parse
 import urllib.request
@@ -58,13 +60,7 @@ def weather_label(code: int | None) -> str:
 
 
 def svg_escape(value: object) -> str:
-    text = "" if value is None else str(value)
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return html.escape("" if value is None else str(value), quote=True)
 
 
 def fetch_weather() -> dict:
@@ -91,31 +87,37 @@ def fetch_weather() -> dict:
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "F4MAJ-QRZ-Weather-Badge/1.2",
+            "User-Agent": "F4MAJ-QRZ-Weather-Badge/2.0",
             "Accept": "application/json",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
         },
     )
 
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with urllib.request.urlopen(request, timeout=25) as response:
         raw = response.read().decode("utf-8", errors="replace")
         return json.loads(raw)
-
-
-def format_time(value: str | None) -> str:
-    if not value:
-        return datetime.now(ZoneInfo(TIMEZONE)).strftime("%d/%m/%Y %H:%M")
-
-    try:
-        dt = datetime.fromisoformat(value)
-        return dt.strftime("%d/%m/%Y %H:%M")
-    except ValueError:
-        return datetime.now(ZoneInfo(TIMEZONE)).strftime("%d/%m/%Y %H:%M")
 
 
 def safe_number(value: object, decimals: int = 1) -> str:
     try:
         return f"{float(value):.{decimals}f}"
     except (TypeError, ValueError):
+        return "--"
+
+
+def generated_time() -> str:
+    return datetime.now(ZoneInfo(TIMEZONE)).strftime("%d/%m/%Y %H:%M")
+
+
+def weather_measure_time(value: str | None) -> str:
+    if not value:
+        return "--"
+
+    try:
+        dt = datetime.fromisoformat(value)
+        return dt.strftime("%d/%m/%Y %H:%M")
+    except ValueError:
         return "--"
 
 
@@ -130,85 +132,83 @@ def build_svg(data: dict) -> str:
     wind_dir = safe_number(current.get("wind_direction_10m"), 0)
     precipitation = safe_number(current.get("precipitation"), 1)
 
-    code = current.get("weather_code")
     try:
-        code_int = int(code)
+        code_int = int(current.get("weather_code"))
     except (TypeError, ValueError):
         code_int = None
 
     condition = weather_label(code_int)
-    update_time = format_time(current.get("time"))
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="250" viewBox="0 0 1120 250">
+    badge_update_time = generated_time()
+    measure_time = weather_measure_time(current.get("time"))
+
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="236" viewBox="0 0 1108 236" role="img" aria-label="Météo live au QRA F4MAJ">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#172033"/>
-      <stop offset="65%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1f2937"/>
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
     </linearGradient>
 
     <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="0%" stop-color="#172033"/>
       <stop offset="100%" stop-color="#111827"/>
     </linearGradient>
 
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.32"/>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
     </filter>
   </defs>
 
-  <rect x="8" y="8" width="1104" height="234" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
+  <!-- Cache buster / génération : {svg_escape(badge_update_time)} -->
 
-  <text x="34" y="45" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff">
+  <rect x="1" y="1" width="1106" height="234" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
+
+  <text x="28" y="39" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">
     Météo live au QRA F4MAJ
   </text>
 
-  <text x="34" y="76" font-family="Arial, Helvetica, sans-serif" font-size="16" fill="#cbd5e1">
+  <text x="28" y="70" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" fill="#dbeafe">
     Illzach • JN37QS • aperçu météo automatique — {svg_escape(condition)}
   </text>
 
-  <text x="850" y="45" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#fbbf24">
+  <text x="844" y="39" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#fbbf24">
     Station WeatherCloud F4MAJ
   </text>
 
-  <text x="850" y="70" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#94a3b8">
+  <text x="844" y="68" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="500" fill="#bfdbfe">
     Données indicatives pour le secteur du QRA
   </text>
 
-  <g transform="translate(34,105)">
-    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">🌡 Température</text>
-    <text x="18" y="60" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff">{temperature} °C</text>
-    <text x="18" y="82" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#94a3b8">Ressenti : {apparent} °C</text>
-  </g>
+  <!-- Carte Température -->
+  <rect x="28" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
+  <text x="51" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">🌡️ Température</text>
+  <text x="47" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{temperature} °C</text>
+  <text x="47" y="184" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">Ressenti : {apparent} °C</text>
 
-  <g transform="translate(248,105)">
-    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">💧 Humidité</text>
-    <text x="18" y="64" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#ffffff">{humidity} %</text>
-  </g>
+  <!-- Carte Humidité -->
+  <rect x="243" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
+  <text x="266" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">💧 Humidité</text>
+  <text x="261" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{humidity} %</text>
 
-  <g transform="translate(462,105)">
-    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">🌬 Vent</text>
-    <text x="18" y="60" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff">{wind} km/h</text>
-    <text x="18" y="82" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#94a3b8">Direction : {wind_dir}°</text>
-  </g>
+  <!-- Carte Vent -->
+  <rect x="458" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
+  <text x="481" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">🌬️ Vent</text>
+  <text x="476" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{wind} km/h</text>
+  <text x="476" y="184" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">Direction : {wind_dir}°</text>
 
-  <g transform="translate(676,105)">
-    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">📊 Pression</text>
-    <text x="18" y="64" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#ffffff">{pressure} hPa</text>
-  </g>
+  <!-- Carte Pression -->
+  <rect x="673" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
+  <text x="696" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">📊 Pression</text>
+  <text x="690" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{pressure} hPa</text>
 
-  <g transform="translate(890,105)">
-    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">🕒 Mise à jour</text>
-    <text x="18" y="57" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#ffffff">{svg_escape(update_time)}</text>
-    <text x="18" y="82" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#94a3b8">Pluie : {precipitation} mm</text>
-  </g>
+  <!-- Carte Mise à jour -->
+  <rect x="888" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
+  <text x="911" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">🕘 Mise à jour</text>
+  <text x="902" y="151" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#ffffff">{svg_escape(badge_update_time)}</text>
+  <text x="902" y="174" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Mesure : {svg_escape(measure_time)}</text>
+  <text x="902" y="188" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Pluie : {precipitation} mm</text>
 
-  <text x="34" y="224" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#94a3b8">
+  <text x="28" y="222" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">
     Source météo automatique • affichage QRZ sans iframe ni widget externe • lien station : {svg_escape(WEATHERCLOUD_URL)}
   </text>
 </svg>
@@ -216,22 +216,35 @@ def build_svg(data: dict) -> str:
 
 
 def build_error_svg(message: str) -> str:
+    badge_update_time = generated_time()
     safe_message = svg_escape(message)
-    update_time = datetime.now(ZoneInfo(TIMEZONE)).strftime("%d/%m/%Y %H:%M")
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="250" viewBox="0 0 1120 250">
-  <rect x="8" y="8" width="1104" height="234" rx="22" fill="#111827" stroke="#334155" stroke-width="2"/>
-  <text x="34" y="55" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="156" viewBox="0 0 1108 156" role="img" aria-label="Météo F4MAJ indisponible">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Cache buster / génération erreur : {svg_escape(badge_update_time)} -->
+
+  <rect x="1" y="1" width="1106" height="154" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
+
+  <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">
     Météo live au QRA F4MAJ
   </text>
-  <text x="34" y="95" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#f59e0b">
+
+  <text x="28" y="78" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="#fbbf24">
     Vérification météo temporairement indisponible
   </text>
-  <text x="34" y="130" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#cbd5e1">
+
+  <text x="28" y="108" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
     {safe_message}
   </text>
-  <text x="34" y="165" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#94a3b8">
-    Dernier essai : {update_time}
+
+  <text x="28" y="132" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
+    Dernier essai : {svg_escape(badge_update_time)}
   </text>
 </svg>
 '''
@@ -241,6 +254,9 @@ def main() -> int:
     try:
         data = fetch_weather()
         svg = build_svg(data)
+        current = data.get("current", {})
+        print(f"Weather source time: {current.get('time') or '-'}")
+        print(f"Badge generated time: {generated_time()}")
     except Exception as exc:
         print(f"Weather update failed: {exc}")
         svg = build_error_svg(str(exc))

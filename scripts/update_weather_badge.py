@@ -91,7 +91,7 @@ def fetch_weather() -> dict:
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "F4MAJ-QRZ-Weather-Badge/1.1",
+            "User-Agent": "F4MAJ-QRZ-Weather-Badge/1.2",
             "Accept": "application/json",
         },
     )
@@ -176,35 +176,35 @@ def build_svg(data: dict) -> str:
   </text>
 
   <g transform="translate(34,105)">
-    <rect x="0" y="0" width="195" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="30" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#fbbf24">🌡 Température</text>
-    <text x="18" y="62" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#ffffff">{temperature} °C</text>
+    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
+    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">🌡 Température</text>
+    <text x="18" y="60" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff">{temperature} °C</text>
     <text x="18" y="82" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#94a3b8">Ressenti : {apparent} °C</text>
   </g>
 
-  <g transform="translate(249,105)">
-    <rect x="0" y="0" width="195" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="30" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#fbbf24">💧 Humidité</text>
-    <text x="18" y="66" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#ffffff">{humidity} %</text>
+  <g transform="translate(248,105)">
+    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
+    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">💧 Humidité</text>
+    <text x="18" y="64" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#ffffff">{humidity} %</text>
   </g>
 
-  <g transform="translate(464,105)">
-    <rect x="0" y="0" width="195" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="30" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#fbbf24">🌬 Vent</text>
-    <text x="18" y="62" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#ffffff">{wind} km/h</text>
+  <g transform="translate(462,105)">
+    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
+    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">🌬 Vent</text>
+    <text x="18" y="60" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" fill="#ffffff">{wind} km/h</text>
     <text x="18" y="82" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#94a3b8">Direction : {wind_dir}°</text>
   </g>
 
-  <g transform="translate(679,105)">
-    <rect x="0" y="0" width="195" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="30" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#fbbf24">📊 Pression</text>
-    <text x="18" y="66" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" fill="#ffffff">{pressure} hPa</text>
+  <g transform="translate(676,105)">
+    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
+    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">📊 Pression</text>
+    <text x="18" y="64" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" fill="#ffffff">{pressure} hPa</text>
   </g>
 
-  <g transform="translate(894,105)">
-    <rect x="0" y="0" width="195" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
-    <text x="18" y="30" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#fbbf24">🕒 Mise à jour</text>
-    <text x="18" y="58" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#ffffff">{svg_escape(update_time)}</text>
+  <g transform="translate(890,105)">
+    <rect x="0" y="0" width="200" height="92" rx="16" fill="url(#card)" stroke="#334155"/>
+    <text x="18" y="29" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#fbbf24">🕒 Mise à jour</text>
+    <text x="18" y="57" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#ffffff">{svg_escape(update_time)}</text>
     <text x="18" y="82" font-family="Arial, Helvetica, sans-serif" font-size="12" fill="#94a3b8">Pluie : {precipitation} mm</text>
   </g>
 

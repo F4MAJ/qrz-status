@@ -2,15 +2,14 @@
 # -*- coding: utf-8 -*-
 
 """
-Mise à jour du badge D-STAR F4MAJ pour QRZ.
+Badge D-STAR dynamique F4MAJ pour QRZ.
 
-Objectif V2 :
-- lire en priorité la page D-Star live / ircDDB du dashboard XLX933
-- détecter la ligne contenant F4MAJ / F4MAJ-B
-- lire le vrai champ "Linked to XLX933 X"
-- ne plus confondre le suffixe radio F4MAJ-B avec le module du réflecteur
-- éviter d'afficher XLX933C si le hotspot est réellement linked to XLX933P
-- générer docs/dstar-f4maj.svg
+Version V3 :
+- détecte F4MAJ / F4MAJ-B sur le dashboard XLX933
+- évite de confondre le suffixe radio F4MAJ-B avec le module réflecteur
+- évite de prendre le module "Default" XLX933C à la place du vrai "Linked to"
+- si une ligne contient plusieurs modules XLX933, priorité au module réellement lié
+- génère docs/dstar-f4maj.svg
 """
 
 from __future__ import annotations
@@ -19,16 +18,19 @@ import html
 import re
 import urllib.error
 import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Optional
 
 
 CALLSIGN = "F4MAJ"
+REFLECTOR = "XLX933"
 
-# Priorité aux pages qui peuvent contenir la vraie information "Linked to".
 DASHBOARD_URLS = [
     "https://xlx933.hamdigital.fr/index.php?show=liveircddb",
     "http://xlx933.hamdigital.fr/index.php?show=liveircddb",
+    "https://xlx933.hamdigital.fr/index.php?show=modules",
+    "http://xlx933.hamdigital.fr/index.php?show=modules",
     "https://xlx933.hamdigital.fr/index.php?show=mod",
     "http://xlx933.hamdigital.fr/index.php?show=mod",
 ]
@@ -36,12 +38,18 @@ DASHBOARD_URLS = [
 OUTPUT_FILE = Path("docs/dstar-f4maj.svg")
 
 
+def normalize_text(value: str) -> str:
+    value = html.unescape(value or "")
+    value = value.replace("\xa0", " ")
+    return " ".join(value.split())
+
+
 def fetch_url(url: str) -> tuple[Optional[str], Optional[str]]:
     try:
         request = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "F4MAJ-QRZ-DSTAR-Status/2.0",
+                "User-Agent": "F4MAJ-QRZ-DSTAR-Status/3.0",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Cache-Control": "no-cache",
                 "Pragma": "no-cache",
@@ -57,27 +65,67 @@ def fetch_url(url: str) -> tuple[Optional[str], Optional[str]]:
         return None, f"{url} -> {exc}"
 
 
-def normalize_text(value: str) -> str:
-    value = html.unescape(value)
-    value = value.replace("\xa0", " ")
-    return " ".join(value.split())
+class TableRowParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[list[str]] = []
+        self.in_row = False
+        self.in_cell = False
+        self.current_row: list[str] = []
+        self.current_cell_parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        tag = tag.lower()
+
+        if tag == "tr":
+            self.in_row = True
+            self.current_row = []
+
+        elif tag in ("td", "th") and self.in_row:
+            self.in_cell = True
+            self.current_cell_parts = []
+
+        elif tag == "br" and self.in_cell:
+            self.current_cell_parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        if self.in_cell:
+            self.current_cell_parts.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+
+        if tag in ("td", "th") and self.in_cell:
+            cell = normalize_text(" ".join(self.current_cell_parts))
+            self.current_row.append(cell)
+            self.current_cell_parts = []
+            self.in_cell = False
+
+        elif tag == "tr" and self.in_row:
+            cleaned = [normalize_text(cell) for cell in self.current_row if normalize_text(cell)]
+            if cleaned:
+                self.rows.append(cleaned)
+            self.current_row = []
+            self.in_row = False
 
 
-def strip_html_tags(source: str) -> str:
+def parse_table_rows(source: str) -> list[list[str]]:
+    parser = TableRowParser()
+    parser.feed(source)
+    return parser.rows
+
+
+def strip_html_to_lines(source: str) -> list[str]:
     source = re.sub(r"(?is)<script[^>]*>.*?</script>", " ", source)
     source = re.sub(r"(?is)<style[^>]*>.*?</style>", " ", source)
     source = re.sub(r"(?i)<br\s*/?>", "\n", source)
     source = re.sub(r"(?i)</\s*(td|th)\s*>", " | ", source)
     source = re.sub(r"(?i)</\s*tr\s*>", "\n", source)
     source = re.sub(r"<[^>]+>", " ", source)
-    return html.unescape(source)
+    source = html.unescape(source)
 
-
-def html_to_lines(source: str) -> list[str]:
-    text = strip_html_tags(source)
     lines = []
-
-    for raw_line in text.splitlines():
+    for raw_line in source.splitlines():
         line = normalize_text(raw_line)
         if line:
             lines.append(line)
@@ -85,124 +133,253 @@ def html_to_lines(source: str) -> list[str]:
     return lines
 
 
-def html_to_text(source: str) -> str:
-    return normalize_text(strip_html_tags(source))
-
-
-def callsign_regex() -> re.Pattern[str]:
-    """
-    Accepte :
-    - F4MAJ
-    - F4MAJ-B
-    - F4MAJ B
-
-    Attention :
-    la lettre B dans F4MAJ-B est le suffixe D-STAR du poste/hotspot,
-    ce n'est pas le module du réflecteur.
-    """
+def callsign_pattern() -> re.Pattern[str]:
     return re.compile(
         r"\b" + re.escape(CALLSIGN) + r"(?:\s*[- ]\s*[A-Z0-9])?\b",
         re.IGNORECASE,
     )
 
 
-def extract_linked_module_from_text(text: str) -> Optional[str]:
-    """
-    Cherche uniquement après une indication de type :
-    Linked to XLX933 P
-    Linked to : XLX933P
-    Linked to XLX 933 P
+def row_contains_callsign(row: list[str]) -> bool:
+    text = " | ".join(row)
+    return callsign_pattern().search(text) is not None
 
-    On évite volontairement de prendre le premier XLX933 trouvé dans la ligne,
-    car une ligne peut contenir :
-    F4MAJ B | XLX933 C | ... | Linked to XLX933 P
-    Dans ce cas le vrai module actif est P, pas C.
-    """
 
-    anchor_match = re.search(
-        r"(linked\s*to|link\s*to|lié\s*à|lie\s*a|connecté\s*à|connecte\s*a)",
-        text,
-        re.IGNORECASE,
-    )
-
-    if not anchor_match:
-        return None
-
-    search_area = text[anchor_match.start():]
+def extract_module(value: str) -> Optional[str]:
+    value = normalize_text(value)
 
     patterns = [
         r"\bXLX\s*933\s*[- ]?\s*([A-Z])\b",
         r"\bXRF\s*933\s*[- ]?\s*([A-Z])\b",
-        r"\bDCS\s*033\s*[- ]?\s*([A-Z])\b",
         r"\bDCS\s*933\s*[- ]?\s*([A-Z])\b",
+        r"\bDCS\s*033\s*[- ]?\s*([A-Z])\b",
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, search_area, re.IGNORECASE)
+        match = re.search(pattern, value, re.IGNORECASE)
         if match:
             return match.group(1).upper()
 
     return None
 
 
-def find_callsign_rows(lines: list[str]) -> list[str]:
-    call_re = callsign_regex()
-    return [line for line in lines if call_re.search(line)]
+def extract_all_modules_from_text(value: str) -> list[str]:
+    value = normalize_text(value)
+    modules: list[str] = []
+
+    patterns = [
+        r"\bXLX\s*933\s*[- ]?\s*([A-Z])\b",
+        r"\bXRF\s*933\s*[- ]?\s*([A-Z])\b",
+        r"\bDCS\s*933\s*[- ]?\s*([A-Z])\b",
+        r"\bDCS\s*033\s*[- ]?\s*([A-Z])\b",
+    ]
+
+    for pattern in patterns:
+        for match in re.finditer(pattern, value, re.IGNORECASE):
+            module = match.group(1).upper()
+            if module not in modules:
+                modules.append(module)
+
+    return modules
 
 
-def detect_from_linked_rows(source: str) -> dict[str, Optional[str]]:
-    lines = html_to_lines(source)
-    rows = find_callsign_rows(lines)
+def header_index_for_linked_to(header: list[str]) -> Optional[int]:
+    for index, cell in enumerate(header):
+        cell_lower = cell.lower()
+        if "linked" in cell_lower and "to" in cell_lower:
+            return index
+        if "lié" in cell_lower or "lie" in cell_lower:
+            return index
+        if "connecté" in cell_lower or "connecte" in cell_lower:
+            return index
+    return None
+
+
+def detect_module_from_row_with_header(row: list[str], header: Optional[list[str]]) -> Optional[str]:
+    if not header:
+        return None
+
+    index = header_index_for_linked_to(header)
+    if index is None:
+        return None
+
+    if index < len(row):
+        module = extract_module(row[index])
+        if module:
+            return module
+
+    return None
+
+
+def detect_module_from_cells(row: list[str]) -> Optional[str]:
+    """
+    Exemple probable d'une ligne live :
+    F4MAJ B | XLX933 C | Auto | ... | Up | XLX933 P | ...
+
+    XLX933C peut être le module par défaut.
+    XLX933P peut être le vrai module "Linked to".
+    Si plusieurs modules sont présents, on privilégie le dernier module détecté,
+    car dans ce type de tableau le module linked arrive après le module default.
+    """
+
+    cells = [normalize_text(cell) for cell in row]
+    modules_by_cell: list[tuple[int, str, str]] = []
+
+    for index, cell in enumerate(cells):
+        module = extract_module(cell)
+        if module:
+            modules_by_cell.append((index, module, cell))
+
+    if not modules_by_cell:
+        return None
+
+    # Priorité 1 : cellule située juste après un statut de lien actif.
+    for index, cell in enumerate(cells):
+        lower = cell.lower()
+        if lower in ("up", "linked", "link up", "connected", "connecte", "connecté"):
+            if index + 1 < len(cells):
+                module = extract_module(cells[index + 1])
+                if module:
+                    return module
+
+    # Priorité 2 : cellule qui contient explicitement Linked to + module.
+    for cell in cells:
+        lower = cell.lower()
+        if "linked" in lower or "connect" in lower or "lié" in lower or "lie" in lower:
+            module = extract_module(cell)
+            if module:
+                return module
+
+    # Priorité 3 : s'il y a plusieurs modules, prendre le dernier.
+    # Cela évite de prendre le module par défaut avant le module réellement lié.
+    return modules_by_cell[-1][1]
+
+
+def detect_from_tables(source: str) -> dict[str, Optional[str]]:
+    rows = parse_table_rows(source)
+    current_header: Optional[list[str]] = None
+    callsign_seen = False
 
     for row in rows:
-        module = extract_linked_module_from_text(row)
+        row_lower = " | ".join(row).lower()
+
+        if "linked" in row_lower or "linked to" in row_lower or "connect" in row_lower:
+            current_header = row
+
+        if not row_contains_callsign(row):
+            continue
+
+        callsign_seen = True
+        print("Candidate table row:")
+        print(" | ".join(row))
+
+        module = detect_module_from_row_with_header(row, current_header)
         if module:
             return {
                 "found": "yes",
                 "module": module,
-                "method": "linked-row",
-                "matched_row": row,
+                "method": "table-header-linked-to",
+                "matched": " | ".join(row),
             }
 
-    # Secours : parfois le texte HTML aplati garde F4MAJ et Linked to proches,
-    # mais pas forcément sur la même ligne.
-    full_text = html_to_text(source)
-    call_re = callsign_regex()
-    call_match = call_re.search(full_text)
-
-    if call_match:
-        start = max(0, call_match.start() - 250)
-        end = min(len(full_text), call_match.end() + 500)
-        nearby_text = full_text[start:end]
-
-        module = extract_linked_module_from_text(nearby_text)
+        module = detect_module_from_cells(row)
         if module:
             return {
                 "found": "yes",
                 "module": module,
-                "method": "linked-nearby-text",
-                "matched_row": nearby_text,
+                "method": "table-row-last-linked-module",
+                "matched": " | ".join(row),
             }
 
+    if callsign_seen:
         return {
             "found": "yes",
             "module": None,
-            "method": "callsign-found-no-linked-module",
-            "matched_row": nearby_text,
+            "method": "table-callsign-found-no-module",
+            "matched": None,
         }
 
     return {
         "found": "no",
         "module": None,
-        "method": "callsign-not-found",
-        "matched_row": None,
+        "method": "table-callsign-not-found",
+        "matched": None,
     }
 
 
-def get_status() -> dict[str, Optional[str]]:
-    errors = []
+def detect_from_text_lines(source: str) -> dict[str, Optional[str]]:
+    lines = strip_html_to_lines(source)
+    call_re = callsign_pattern()
     callsign_seen = False
-    fallback_detail = None
+
+    for line in lines:
+        if not call_re.search(line):
+            continue
+
+        callsign_seen = True
+        print("Candidate text line:")
+        print(line)
+
+        linked_match = re.search(
+            r"(linked\s*to|connect(?:ed|e|é)?\s*(?:to|a|à)?|lié\s*à|lie\s*a).{0,120}",
+            line,
+            re.IGNORECASE,
+        )
+
+        if linked_match:
+            module = extract_module(linked_match.group(0))
+            if module:
+                return {
+                    "found": "yes",
+                    "module": module,
+                    "method": "text-explicit-linked-to",
+                    "matched": line,
+                }
+
+        modules = extract_all_modules_from_text(line)
+        if modules:
+            return {
+                "found": "yes",
+                "module": modules[-1],
+                "method": "text-last-module",
+                "matched": line,
+            }
+
+    if callsign_seen:
+        return {
+            "found": "yes",
+            "module": None,
+            "method": "text-callsign-found-no-module",
+            "matched": None,
+        }
+
+    return {
+        "found": "no",
+        "module": None,
+        "method": "text-callsign-not-found",
+        "matched": None,
+    }
+
+
+def detect_from_source(source: str) -> dict[str, Optional[str]]:
+    table_detection = detect_from_tables(source)
+
+    if table_detection.get("found") == "yes" and table_detection.get("module"):
+        return table_detection
+
+    text_detection = detect_from_text_lines(source)
+
+    if text_detection.get("found") == "yes":
+        return text_detection
+
+    return table_detection
+
+
+def get_status() -> dict[str, Optional[str]]:
+    errors: list[str] = []
+    callsign_seen = False
+    last_method = ""
+    last_match = ""
 
     for url in DASHBOARD_URLS:
         print(f"Checking: {url}")
@@ -213,13 +390,15 @@ def get_status() -> dict[str, Optional[str]]:
             print(f"Fetch failed: {error}")
             continue
 
-        detection = detect_from_linked_rows(source)
+        detection = detect_from_source(source)
+
         print(f"Detection method: {detection.get('method')}")
         print(f"Detected module: {detection.get('module') or '-'}")
 
         if detection.get("found") == "yes":
             callsign_seen = True
-            fallback_detail = detection.get("matched_row")
+            last_method = detection.get("method") or ""
+            last_match = detection.get("matched") or ""
 
             module = detection.get("module")
             if module:
@@ -227,7 +406,7 @@ def get_status() -> dict[str, Optional[str]]:
                     "state": "ONLINE",
                     "module": module,
                     "line1": "D-STAR online",
-                    "line2": f"{CALLSIGN} visible sur XLX933{module}",
+                    "line2": f"{CALLSIGN} visible sur {REFLECTOR}{module}",
                     "detail": f"{url} / {detection.get('method')}",
                 }
 
@@ -236,8 +415,8 @@ def get_status() -> dict[str, Optional[str]]:
             "state": "ONLINE",
             "module": None,
             "line1": "D-STAR online",
-            "line2": f"{CALLSIGN} visible sur XLX933",
-            "detail": fallback_detail or "callsign found but linked module not detected",
+            "line2": f"{CALLSIGN} visible sur {REFLECTOR}",
+            "detail": f"{last_method} / {last_match}",
         }
 
     if errors and len(errors) == len(DASHBOARD_URLS):
@@ -253,15 +432,13 @@ def get_status() -> dict[str, Optional[str]]:
         "state": "OFFLINE",
         "module": None,
         "line1": "D-STAR offline",
-        "line2": f"{CALLSIGN} non visible sur XLX933",
+        "line2": f"{CALLSIGN} non visible sur {REFLECTOR}",
         "detail": "callsign not found",
     }
 
 
 def svg_escape(value: Optional[str]) -> str:
-    if value is None:
-        return ""
-    return html.escape(value, quote=True)
+    return html.escape(value or "", quote=True)
 
 
 def build_svg(status: dict[str, Optional[str]]) -> str:
@@ -283,7 +460,7 @@ def build_svg(status: dict[str, Optional[str]]) -> str:
     line1 = svg_escape(status.get("line1"))
     line2 = svg_escape(status.get("line2"))
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="92" viewBox="0 0 1000 92" role="img" aria-label="D-STAR F4MAJ status">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="608" height="118" viewBox="0 0 608 118" role="img" aria-label="D-STAR F4MAJ status">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0f172a"/>
@@ -298,22 +475,24 @@ def build_svg(status: dict[str, Optional[str]]) -> str:
     </filter>
   </defs>
 
-  <rect x="1" y="1" width="998" height="90" rx="18" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
+  <rect x="1" y="1" width="606" height="116" rx="18" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
 
-  <circle cx="42" cy="46" r="10" fill="{main_color}" filter="url(#softGlow)"/>
-  <circle cx="42" cy="46" r="4" fill="{glow_color}"/>
+  <circle cx="52" cy="59" r="16" fill="{main_color}" filter="url(#softGlow)"/>
+  <circle cx="52" cy="59" r="7" fill="{glow_color}"/>
 
-  <text x="70" y="34" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#ffffff">
+  <text x="86" y="38" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#ffffff">
     D-STAR F4MAJ
   </text>
 
-  <text x="70" y="62" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="600" fill="#cbd5e1">
+  <text x="86" y="66" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" fill="#e5e7eb">
     {line1} — {line2}
   </text>
 
-  <rect x="820" y="24" width="145" height="44" rx="12" fill="{main_color}" opacity="0.16" stroke="{main_color}" stroke-width="1.5"/>
+  <text x="86" y="92" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#fbbf24">
+    Dashboard XLX933 · badge QRZ automatique
+  </text>
 
-  <text x="892" y="53" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="{main_color}">
+  <text x="520" y="38" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
     {state_label}
   </text>
 </svg>
@@ -323,8 +502,9 @@ def build_svg(status: dict[str, Optional[str]]) -> str:
 def main() -> int:
     status = get_status()
 
-    print(f"Detected state: {status.get('state')}")
-    print(f"Detected module: {status.get('module') or '-'}")
+    print("Final status:")
+    print(f"State: {status.get('state')}")
+    print(f"Module: {status.get('module') or '-'}")
     print(f"Detail: {status.get('detail') or '-'}")
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)

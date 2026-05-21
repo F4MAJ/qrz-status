@@ -4,11 +4,12 @@
 """
 Badge D-STAR dynamique F4MAJ pour QRZ.
 
-Version V3 :
+Version V4 :
 - détecte F4MAJ / F4MAJ-B sur le dashboard XLX933
+- lit en priorité la page Relais / Nodes, car elle contient normalement la colonne Module
+- accepte un module écrit sous forme XLX933P, XLX933 P ou simplement P dans une colonne Module
 - évite de confondre le suffixe radio F4MAJ-B avec le module réflecteur
-- évite de prendre le module "Default" XLX933C à la place du vrai "Linked to"
-- si une ligne contient plusieurs modules XLX933, priorité au module réellement lié
+- si le module n'est pas trouvé, affiche ONLINE sur XLX933 sans lettre au lieu d'afficher une mauvaise lettre
 - génère docs/dstar-f4maj.svg
 """
 
@@ -25,17 +26,23 @@ from typing import Optional
 
 CALLSIGN = "F4MAJ"
 REFLECTOR = "XLX933"
+OUTPUT_FILE = Path("docs/dstar-f4maj.svg")
 
+# Priorité aux pages où le module du relais/node est le plus fiable.
 DASHBOARD_URLS = [
+    "https://xlx933.hamdigital.fr/index.php?show=repeaters",
+    "http://xlx933.hamdigital.fr/index.php?show=repeaters",
+    "https://xlx933.hamdigital.fr/index.php?show=users",
+    "http://xlx933.hamdigital.fr/index.php?show=users",
     "https://xlx933.hamdigital.fr/index.php?show=liveircddb",
     "http://xlx933.hamdigital.fr/index.php?show=liveircddb",
+    "https://xlx933.hamdigital.fr/index.php?show=ircddb",
+    "http://xlx933.hamdigital.fr/index.php?show=ircddb",
     "https://xlx933.hamdigital.fr/index.php?show=modules",
     "http://xlx933.hamdigital.fr/index.php?show=modules",
     "https://xlx933.hamdigital.fr/index.php?show=mod",
     "http://xlx933.hamdigital.fr/index.php?show=mod",
 ]
-
-OUTPUT_FILE = Path("docs/dstar-f4maj.svg")
 
 
 def normalize_text(value: str) -> str:
@@ -49,7 +56,7 @@ def fetch_url(url: str) -> tuple[Optional[str], Optional[str]]:
         request = urllib.request.Request(
             url,
             headers={
-                "User-Agent": "F4MAJ-QRZ-DSTAR-Status/3.0",
+                "User-Agent": "F4MAJ-QRZ-DSTAR-Status/4.0",
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Cache-Control": "no-cache",
                 "Pragma": "no-cache",
@@ -134,6 +141,7 @@ def strip_html_to_lines(source: str) -> list[str]:
 
 
 def callsign_pattern() -> re.Pattern[str]:
+    # Accepte F4MAJ, F4MAJ-B, F4MAJ B.
     return re.compile(
         r"\b" + re.escape(CALLSIGN) + r"(?:\s*[- ]\s*[A-Z0-9])?\b",
         re.IGNORECASE,
@@ -145,9 +153,10 @@ def row_contains_callsign(row: list[str]) -> bool:
     return callsign_pattern().search(text) is not None
 
 
-def extract_module(value: str) -> Optional[str]:
+def normalize_module_value(value: str) -> Optional[str]:
     value = normalize_text(value)
 
+    # Cas XLX933P, XLX933 P, XLX 933 P.
     patterns = [
         r"\bXLX\s*933\s*[- ]?\s*([A-Z])\b",
         r"\bXRF\s*933\s*[- ]?\s*([A-Z])\b",
@@ -159,6 +168,15 @@ def extract_module(value: str) -> Optional[str]:
         match = re.search(pattern, value, re.IGNORECASE)
         if match:
             return match.group(1).upper()
+
+    # Cas colonne Module contenant seulement P, C, etc.
+    if re.fullmatch(r"[A-Z]", value.strip(), re.IGNORECASE):
+        return value.strip().upper()
+
+    # Cas texte du type "Module P".
+    match = re.search(r"\bmodule\s+([A-Z])\b", value, re.IGNORECASE)
+    if match:
+        return match.group(1).upper()
 
     return None
 
@@ -183,28 +201,48 @@ def extract_all_modules_from_text(value: str) -> list[str]:
     return modules
 
 
-def header_index_for_linked_to(header: list[str]) -> Optional[int]:
+def is_probable_header(row: list[str]) -> bool:
+    text = " | ".join(row).lower()
+    keywords = [
+        "dv station",
+        "station",
+        "last heard",
+        "linked",
+        "protocol",
+        "module",
+        "ip",
+        "band",
+        "flag",
+        "repeater",
+        "node",
+    ]
+    return sum(1 for keyword in keywords if keyword in text) >= 2
+
+
+def find_header_index(header: list[str], accepted_names: list[str]) -> Optional[int]:
     for index, cell in enumerate(header):
         cell_lower = cell.lower()
-        if "linked" in cell_lower and "to" in cell_lower:
-            return index
-        if "lié" in cell_lower or "lie" in cell_lower:
-            return index
-        if "connecté" in cell_lower or "connecte" in cell_lower:
-            return index
+        for name in accepted_names:
+            if name in cell_lower:
+                return index
     return None
 
 
-def detect_module_from_row_with_header(row: list[str], header: Optional[list[str]]) -> Optional[str]:
+def detect_module_with_header(row: list[str], header: Optional[list[str]]) -> Optional[str]:
     if not header:
         return None
 
-    index = header_index_for_linked_to(header)
-    if index is None:
-        return None
+    # Priorité 1 : vraie colonne Module.
+    module_index = find_header_index(header, ["module"])
+    if module_index is not None and module_index < len(row):
+        module = normalize_module_value(row[module_index])
+        if module:
+            return module
 
-    if index < len(row):
-        module = extract_module(row[index])
+    # Priorité 2 : colonne Linked to, si elle existe.
+    linked_to_index = find_header_index(header, ["linked to", "lié à", "lie a", "connecté à", "connecte a"])
+    if linked_to_index is not None and linked_to_index < len(row):
+        module = normalize_module_value(row[linked_to_index])
         if module:
             return module
 
@@ -212,47 +250,36 @@ def detect_module_from_row_with_header(row: list[str], header: Optional[list[str
 
 
 def detect_module_from_cells(row: list[str]) -> Optional[str]:
-    """
-    Exemple probable d'une ligne live :
-    F4MAJ B | XLX933 C | Auto | ... | Up | XLX933 P | ...
-
-    XLX933C peut être le module par défaut.
-    XLX933P peut être le vrai module "Linked to".
-    Si plusieurs modules sont présents, on privilégie le dernier module détecté,
-    car dans ce type de tableau le module linked arrive après le module default.
-    """
-
     cells = [normalize_text(cell) for cell in row]
-    modules_by_cell: list[tuple[int, str, str]] = []
 
-    for index, cell in enumerate(cells):
-        module = extract_module(cell)
-        if module:
-            modules_by_cell.append((index, module, cell))
+    # Priorité 1 : cellule explicite "Linked to XLX933P".
+    for cell in cells:
+        lower = cell.lower()
+        if "linked to" in lower or "connect" in lower or "lié" in lower or "lie a" in lower:
+            module = normalize_module_value(cell)
+            if module:
+                return module
 
-    if not modules_by_cell:
-        return None
-
-    # Priorité 1 : cellule située juste après un statut de lien actif.
+    # Priorité 2 : cellule après un statut de lien actif.
     for index, cell in enumerate(cells):
         lower = cell.lower()
         if lower in ("up", "linked", "link up", "connected", "connecte", "connecté"):
             if index + 1 < len(cells):
-                module = extract_module(cells[index + 1])
+                module = normalize_module_value(cells[index + 1])
                 if module:
                     return module
 
-    # Priorité 2 : cellule qui contient explicitement Linked to + module.
+    # Priorité 3 : modules complets trouvés dans la ligne.
+    # Si plusieurs modules sont présents, on prend le dernier pour éviter le module par défaut.
+    modules: list[str] = []
     for cell in cells:
-        lower = cell.lower()
-        if "linked" in lower or "connect" in lower or "lié" in lower or "lie" in lower:
-            module = extract_module(cell)
-            if module:
-                return module
+        for module in extract_all_modules_from_text(cell):
+            modules.append(module)
 
-    # Priorité 3 : s'il y a plusieurs modules, prendre le dernier.
-    # Cela évite de prendre le module par défaut avant le module réellement lié.
-    return modules_by_cell[-1][1]
+    if modules:
+        return modules[-1]
+
+    return None
 
 
 def detect_from_tables(source: str) -> dict[str, Optional[str]]:
@@ -261,10 +288,11 @@ def detect_from_tables(source: str) -> dict[str, Optional[str]]:
     callsign_seen = False
 
     for row in rows:
-        row_lower = " | ".join(row).lower()
-
-        if "linked" in row_lower or "linked to" in row_lower or "connect" in row_lower:
+        if is_probable_header(row):
             current_header = row
+            print("Header row:")
+            print(" | ".join(row))
+            continue
 
         if not row_contains_callsign(row):
             continue
@@ -273,12 +301,12 @@ def detect_from_tables(source: str) -> dict[str, Optional[str]]:
         print("Candidate table row:")
         print(" | ".join(row))
 
-        module = detect_module_from_row_with_header(row, current_header)
+        module = detect_module_with_header(row, current_header)
         if module:
             return {
                 "found": "yes",
                 "module": module,
-                "method": "table-header-linked-to",
+                "method": "table-header-module",
                 "matched": " | ".join(row),
             }
 
@@ -287,7 +315,7 @@ def detect_from_tables(source: str) -> dict[str, Optional[str]]:
             return {
                 "found": "yes",
                 "module": module,
-                "method": "table-row-last-linked-module",
+                "method": "table-cells-module",
                 "matched": " | ".join(row),
             }
 
@@ -320,14 +348,15 @@ def detect_from_text_lines(source: str) -> dict[str, Optional[str]]:
         print("Candidate text line:")
         print(line)
 
+        # Cas explicite : F4MAJ ... Linked to XLX933P.
         linked_match = re.search(
-            r"(linked\s*to|connect(?:ed|e|é)?\s*(?:to|a|à)?|lié\s*à|lie\s*a).{0,120}",
+            r"(linked\s*to|connect(?:ed|e|é)?\s*(?:to|a|à)?|lié\s*à|lie\s*a).{0,160}",
             line,
             re.IGNORECASE,
         )
 
         if linked_match:
-            module = extract_module(linked_match.group(0))
+            module = normalize_module_value(linked_match.group(0))
             if module:
                 return {
                     "found": "yes",
@@ -363,16 +392,17 @@ def detect_from_text_lines(source: str) -> dict[str, Optional[str]]:
 
 def detect_from_source(source: str) -> dict[str, Optional[str]]:
     table_detection = detect_from_tables(source)
-
     if table_detection.get("found") == "yes" and table_detection.get("module"):
         return table_detection
 
     text_detection = detect_from_text_lines(source)
-
-    if text_detection.get("found") == "yes":
+    if text_detection.get("found") == "yes" and text_detection.get("module"):
         return text_detection
 
-    return table_detection
+    if table_detection.get("found") == "yes":
+        return table_detection
+
+    return text_detection
 
 
 def get_status() -> dict[str, Optional[str]]:
@@ -460,7 +490,7 @@ def build_svg(status: dict[str, Optional[str]]) -> str:
     line1 = svg_escape(status.get("line1"))
     line2 = svg_escape(status.get("line2"))
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="608" height="118" viewBox="0 0 608 118" role="img" aria-label="D-STAR F4MAJ status">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="608" height="118" viewBox="0 0 608 118" role="img" aria-label="D-STAR F4MAJ status">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0f172a"/>
@@ -496,7 +526,7 @@ def build_svg(status: dict[str, Optional[str]]) -> str:
     {state_label}
   </text>
 </svg>
-"""
+'''
 
 
 def main() -> int:

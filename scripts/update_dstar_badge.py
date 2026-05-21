@@ -17,6 +17,7 @@ import html
 import re
 import urllib.error
 import urllib.request
+from html.parser import HTMLParser
 from pathlib import Path
 
 
@@ -30,6 +31,75 @@ DASHBOARD_URLS = [
 OUTPUT_FILE = Path("docs/dstar-f4maj.svg")
 
 
+class RowCellParser(HTMLParser):
+    """
+    Parser volontairement simple :
+    - récupère toutes les lignes <tr>
+    - récupère les cellules <td> et <th>
+    - respecte colspan si présent
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[list[str]] = []
+
+        self._in_row = False
+        self._in_cell = False
+        self._current_row: list[str] = []
+        self._current_cell: list[str] = []
+        self._current_colspan = 1
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        tag = tag.lower()
+        attrs_dict = dict(attrs)
+
+        if tag == "tr":
+            self._in_row = True
+            self._current_row = []
+
+        elif tag in ("td", "th") and self._in_row:
+            self._in_cell = True
+            self._current_cell = []
+
+            colspan_raw = attrs_dict.get("colspan", "1")
+            try:
+                self._current_colspan = max(1, int(colspan_raw))
+            except ValueError:
+                self._current_colspan = 1
+
+    def handle_data(self, data: str) -> None:
+        if self._in_cell:
+            self._current_cell.append(data)
+
+    def handle_entityref(self, name: str) -> None:
+        if self._in_cell:
+            self._current_cell.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        if self._in_cell:
+            self._current_cell.append(f"&#{name};")
+
+    def handle_endtag(self, tag: str) -> None:
+        tag = tag.lower()
+
+        if tag in ("td", "th") and self._in_cell:
+            cell = normalize_text("".join(self._current_cell))
+
+            for _ in range(self._current_colspan):
+                self._current_row.append(cell)
+
+            self._current_cell = []
+            self._current_colspan = 1
+            self._in_cell = False
+
+        elif tag == "tr" and self._in_row:
+            if any(cell.strip() for cell in self._current_row):
+                self.rows.append(self._current_row)
+
+            self._current_row = []
+            self._in_row = False
+
+
 def fetch_dashboard() -> tuple[str | None, str | None]:
     last_error = None
 
@@ -38,7 +108,7 @@ def fetch_dashboard() -> tuple[str | None, str | None]:
             request = urllib.request.Request(
                 url,
                 headers={
-                    "User-Agent": "F4MAJ-QRZ-DSTAR-Status/1.3",
+                    "User-Agent": "F4MAJ-QRZ-DSTAR-Status/1.4",
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 },
             )
@@ -66,38 +136,10 @@ def html_to_text(source: str) -> str:
     return normalize_text(source)
 
 
-def html_to_rows(source: str) -> list[list[str]]:
-    """
-    Transforme le HTML en lignes/cellules approximatives.
-    Cette méthode est plus adaptée aux dashboards XLX que le parser précédent.
-    """
-    cleaned = re.sub(r"<script[\s\S]*?</script>", " ", source, flags=re.IGNORECASE)
-    cleaned = re.sub(r"<style[\s\S]*?</style>", " ", cleaned, flags=re.IGNORECASE)
-
-    cleaned = re.sub(r"<br\s*/?>", " ", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"</t[dh]\s*>\s*<t[dh][^>]*>", "\t", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"</tr\s*>", "\n", cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
-
-    rows: list[list[str]] = []
-
-    for raw_line in cleaned.splitlines():
-        cells = []
-        for raw_cell in raw_line.split("\t"):
-            cell = normalize_text(raw_cell)
-            if cell:
-                cells.append(cell)
-
-        if cells:
-            rows.append(cells)
-
-    return rows
-
-
 def callsign_regex() -> re.Pattern[str]:
     """
-    Accepte F4MAJ, F4MAJ-B, F4MAJ-C, etc.
-    Mais la lettre après le tiret n'est PAS le module.
+    Accepte F4MAJ, F4MAJ-B, F4MAJ-C, F4MAJ-9, etc.
+    La lettre après le tiret n'est PAS le module.
     """
     return re.compile(
         r"\b" + re.escape(CALLSIGN) + r"(?:-[A-Z0-9])?\b",
@@ -107,14 +149,15 @@ def callsign_regex() -> re.Pattern[str]:
 
 def extract_module_from_header(header_text: str) -> str | None:
     """
-    Détecte le module depuis un titre de colonne du dashboard.
+    Détecte le module depuis un titre de colonne.
 
     Exemples :
     - France DSTAR C (57) -> C
     - Europe B (1) -> B
+    - France MultiProtocol V (7) -> V
     - XLX933 P -> P
     """
-    text = header_text.upper()
+    text = normalize_text(header_text).upper()
 
     patterns = [
         r"\bFRANCE\s+DSTAR\s+([A-Z])\b",
@@ -134,58 +177,84 @@ def extract_module_from_header(header_text: str) -> str | None:
     return None
 
 
-def detect_module_from_rows(source: str) -> str | None:
+def detect_module_from_table_rows(source: str) -> str | None:
     """
-    Cherche la colonne dans laquelle apparaît F4MAJ.
-    On garde en mémoire les titres de colonnes vus au-dessus.
+    Cherche dans quelle colonne du dashboard se trouve F4MAJ.
+    C'est la méthode principale.
     """
-    rows = html_to_rows(source)
-    call_re = callsign_regex()
+    parser = RowCellParser()
+    parser.feed(source)
 
+    call_re = callsign_regex()
     current_headers: dict[int, str] = {}
 
-    for row in rows:
-        row_modules: dict[int, str] = {}
+    print("Rows parsed:", len(parser.rows))
+
+    for row_number, row in enumerate(parser.rows, start=1):
+        found_header_in_row = False
 
         for col_index, cell in enumerate(row):
             module = extract_module_from_header(cell)
             if module:
-                row_modules[col_index] = module
+                current_headers[col_index] = module
+                found_header_in_row = True
 
-        if row_modules:
-            current_headers.update(row_modules)
+        if found_header_in_row:
+            print("Header row:", row_number, current_headers)
 
         for col_index, cell in enumerate(row):
             if call_re.search(cell):
+                print("Callsign found in row:", row_number)
+                print("Column:", col_index)
+                print("Cell:", cell)
+                print("Known headers:", current_headers)
+
                 if col_index in current_headers:
                     return current_headers[col_index]
 
-                # Sécurité : si le dashboard fusionne des cellules,
-                # on regarde si une cellule précédente de la même ligne contient un titre de module.
-                for previous_index in range(col_index, -1, -1):
-                    if previous_index in current_headers:
-                        return current_headers[previous_index]
+                # Si le dashboard a un décalage de colonne, on prend l'en-tête le plus proche à gauche.
+                left_headers = [
+                    (idx, module)
+                    for idx, module in current_headers.items()
+                    if idx <= col_index
+                ]
+
+                if left_headers:
+                    return sorted(left_headers, key=lambda item: item[0])[-1][1]
 
     return None
 
 
-def detect_module_by_known_sections(source: str) -> str | None:
+def detect_module_from_text_sections(source: str) -> str | None:
     """
-    Méthode de secours :
-    si le tableau est difficile à analyser, on découpe le texte par noms de modules connus.
+    Méthode de secours.
+    On découpe grossièrement le texte par sections connues.
     """
     text = html_to_text(source)
     call_re = callsign_regex()
 
-    sections = [
-        ("C", r"France\s+DSTAR\s+C\s*\(\d+\)"),
-        ("P", r"XLX933\s*P|DSTAR\s+P|France\s+DSTAR\s+P\s*\(\d+\)"),
+    call_match = call_re.search(text)
+    if not call_match:
+        return None
+
+    call_pos = call_match.start()
+
+    module_patterns = [
         ("B", r"Europe\s+B\s*\(\d+\)"),
+        ("C", r"France\s+DSTAR\s+C\s*\(\d+\)"),
+        ("D", r"TG208\s+IPSC2FR3\s+D\s*\(\d+\)"),
+        ("E", r"Nord\s+Ouest\s+E\s*\(\d+\)"),
+        ("M", r"YSF\s+Mayenne\s+M\s*\(\d+\)"),
+        ("N", r"NXDN\s+TG933\s+N\s*\(\d+\)"),
+        ("V", r"France\s+MultiProtocol\s+V\s*\(\d+\)"),
+        ("X", r"X\s*\(\d+\)"),
+        ("Y", r"YSF\s+France\s+Y\s*\(\d+\)"),
+        ("Z", r"YSF\s+Reunion\s+Z\s*\(\d+\)"),
     ]
 
     positions: list[tuple[int, str]] = []
 
-    for module, pattern in sections:
+    for module, pattern in module_patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)
         if match:
             positions.append((match.start(), module))
@@ -195,11 +264,6 @@ def detect_module_by_known_sections(source: str) -> str | None:
 
     positions.sort()
 
-    call_match = call_re.search(text)
-    if not call_match:
-        return None
-
-    call_pos = call_match.start()
     selected_module: str | None = None
 
     for pos, module in positions:
@@ -210,11 +274,11 @@ def detect_module_by_known_sections(source: str) -> str | None:
 
 
 def detect_module(source: str) -> str | None:
-    module = detect_module_from_rows(source)
+    module = detect_module_from_table_rows(source)
     if module:
         return module
 
-    return detect_module_by_known_sections(source)
+    return detect_module_from_text_sections(source)
 
 
 def get_status() -> dict[str, str | None]:

@@ -4,11 +4,13 @@
 """
 Génère le badge météo SVG pour la page QRZ F4MAJ.
 
-Version V2 :
+Version V3 :
 - source météo : Open-Meteo, position approximative Illzach / JN37QS
 - affichage QRZ sans iframe ni widget externe
 - "Mise à jour" = heure réelle de génération du badge par GitHub Actions
 - "Mesure" = heure de la donnée météo renvoyée par Open-Meteo
+- largeur SVG augmentée à 1200 px pour éviter les débordements à droite
+- texte haut droit et ligne basse raccourcis pour éviter toute coupure
 - sortie : docs/meteo-f4maj.svg
 """
 
@@ -87,7 +89,7 @@ def fetch_weather() -> dict:
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "F4MAJ-QRZ-Weather-Badge/2.0",
+            "User-Agent": "F4MAJ-QRZ-Weather-Badge/3.0",
             "Accept": "application/json",
             "Cache-Control": "no-cache",
             "Pragma": "no-cache",
@@ -142,7 +144,7 @@ def build_svg(data: dict) -> str:
     badge_update_time = generated_time()
     measure_time = weather_measure_time(current.get("time"))
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="236" viewBox="0 0 1108 236" role="img" aria-label="Météo live au QRA F4MAJ">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="236" viewBox="0 0 1200 236" role="img" aria-label="Météo live au QRA F4MAJ">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0f172a"/>
@@ -159,9 +161,9 @@ def build_svg(data: dict) -> str:
     </filter>
   </defs>
 
-  <!-- Cache buster / génération : {svg_escape(badge_update_time)} -->
+  <!-- Badge météo F4MAJ V3 / génération : {svg_escape(badge_update_time)} -->
 
-  <rect x="1" y="1" width="1106" height="234" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1" y="1" width="1198" height="234" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
   <text x="28" y="39" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">
     Météo live au QRA F4MAJ
@@ -171,12 +173,12 @@ def build_svg(data: dict) -> str:
     Illzach • JN37QS • aperçu météo automatique — {svg_escape(condition)}
   </text>
 
-  <text x="844" y="39" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#fbbf24">
+  <text x="848" y="39" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#fbbf24">
     Station WeatherCloud F4MAJ
   </text>
 
-  <text x="844" y="68" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="500" fill="#bfdbfe">
-    Données indicatives pour le secteur du QRA
+  <text x="848" y="68" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
+    Données indicatives secteur QRA
   </text>
 
   <!-- Carte Température -->
@@ -209,7 +211,7 @@ def build_svg(data: dict) -> str:
   <text x="902" y="188" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Pluie : {precipitation} mm</text>
 
   <text x="28" y="222" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">
-    Source météo automatique • affichage QRZ sans iframe ni widget externe • lien station : {svg_escape(WEATHERCLOUD_URL)}
+    Source météo automatique • QRZ sans iframe ni widget externe • station WeatherCloud F4MAJ
   </text>
 </svg>
 '''
@@ -219,7 +221,7 @@ def build_error_svg(message: str) -> str:
     badge_update_time = generated_time()
     safe_message = svg_escape(message)
 
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1108" height="156" viewBox="0 0 1108 156" role="img" aria-label="Météo F4MAJ indisponible">
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="156" viewBox="0 0 1200 156" role="img" aria-label="Météo F4MAJ indisponible">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#0f172a"/>
@@ -227,9 +229,9 @@ def build_error_svg(message: str) -> str:
     </linearGradient>
   </defs>
 
-  <!-- Cache buster / génération erreur : {svg_escape(badge_update_time)} -->
+  <!-- Badge météo F4MAJ V3 erreur / génération : {svg_escape(badge_update_time)} -->
 
-  <rect x="1" y="1" width="1106" height="154" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
+  <rect x="1" y="1" width="1198" height="154" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
 
   <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">
     Météo live au QRA F4MAJ

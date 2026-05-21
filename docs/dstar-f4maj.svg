@@ -1,34 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="620" height="130" viewBox="0 0 620 130">
+<svg xmlns="http://www.w3.org/2000/svg" width="608" height="118" viewBox="0 0 608 118" role="img" aria-label="D-STAR F4MAJ status">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#172033"/>
-      <stop offset="70%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1f2937"/>
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#111827"/>
     </linearGradient>
-
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000000" flood-opacity="0.32"/>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
-  <rect x="8" y="8" width="604" height="114" rx="20" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="1" y="1" width="606" height="116" rx="18" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
 
-  <circle cx="58" cy="65" r="17" fill="#22c55e"/>
-  <circle cx="58" cy="65" r="8" fill="#86efac"/>
+  <circle cx="52" cy="59" r="16" fill="#22c55e" filter="url(#softGlow)"/>
+  <circle cx="52" cy="59" r="7" fill="#86efac"/>
 
-  <text x="92" y="43" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#ffffff">
+  <text x="86" y="38" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#ffffff">
     D-STAR F4MAJ
   </text>
 
-  <text x="92" y="73" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#d1d5db">
-    D-STAR online — F4MAJ visible sur XLX933C
+  <text x="86" y="66" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" fill="#e5e7eb">
+    D-STAR online — F4MAJ visible sur XLX933
   </text>
 
-  <text x="92" y="98" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#fbbf24">
-    Dashboard XLX933 • badge QRZ automatique
+  <text x="86" y="92" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#fbbf24">
+    Dashboard XLX933 · badge QRZ automatique
   </text>
 
-  <text x="500" y="43" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#94a3b8">
+  <text x="520" y="38" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
     ONLINE
   </text>
 </svg>

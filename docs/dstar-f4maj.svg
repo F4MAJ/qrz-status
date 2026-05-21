@@ -13,15 +13,15 @@
 
   <rect x="8" y="8" width="604" height="114" rx="20" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
-  <circle cx="58" cy="65" r="17" fill="#22c55e"/>
-  <circle cx="58" cy="65" r="8" fill="#86efac"/>
+  <circle cx="58" cy="65" r="17" fill="#ef4444"/>
+  <circle cx="58" cy="65" r="8" fill="#fca5a5"/>
 
   <text x="92" y="43" font-family="Arial, Helvetica, sans-serif" font-size="23" font-weight="700" fill="#ffffff">
     D-STAR F4MAJ
   </text>
 
   <text x="92" y="73" font-family="Arial, Helvetica, sans-serif" font-size="17" fill="#d1d5db">
-    D-STAR online — F4MAJ visible sur XLX933B
+    D-STAR offline — F4MAJ non visible sur XLX933
   </text>
 
   <text x="92" y="98" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#fbbf24">
@@ -29,6 +29,6 @@
   </text>
 
   <text x="500" y="43" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#94a3b8">
-    ONLINE
+    OFFLINE
   </text>
 </svg>

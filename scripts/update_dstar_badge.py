@@ -5,7 +5,7 @@
 Mise à jour du badge D-STAR F4MAJ pour QRZ.
 
 Objectif :
-- détecter si F4MAJ est visible sur le dashboard XLX933
+- détecter si F4MAJ est visible sur la page modules du dashboard XLX933
 - détecter le vrai module du réflecteur depuis la colonne du dashboard
 - ne pas confondre F4MAJ-B avec le module B
 - générer docs/dstar-f4maj.svg
@@ -24,9 +24,7 @@ from pathlib import Path
 CALLSIGN = "F4MAJ"
 
 DASHBOARD_URLS = [
-    "http://xlx933.hamdigital.fr/index.php",
     "http://xlx933.hamdigital.fr/index.php?show=mod",
-    "https://xlx933.hamdigital.fr/index.php",
     "https://xlx933.hamdigital.fr/index.php?show=mod",
 ]
 
@@ -91,7 +89,7 @@ def fetch_dashboard() -> tuple[str | None, str | None]:
             request = urllib.request.Request(
                 url,
                 headers={
-                    "User-Agent": "F4MAJ-QRZ-DSTAR-Status/1.1",
+                    "User-Agent": "F4MAJ-QRZ-DSTAR-Status/1.2",
                     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 },
             )
@@ -116,13 +114,6 @@ def html_to_text(source: str) -> str:
 
 
 def extract_module_from_header(header_text: str) -> str | None:
-    """
-    Détecte le module depuis un titre de colonne du dashboard.
-    Exemple :
-    - France DSTAR C (57) -> C
-    - Europe B (1) -> B
-    - XLX933 P -> P
-    """
     text = header_text.upper()
 
     patterns = [
@@ -144,10 +135,6 @@ def extract_module_from_header(header_text: str) -> str | None:
 
 
 def detect_module_from_tables(source: str) -> str | None:
-    """
-    Détecte le vrai module en regardant dans quelle colonne se trouve F4MAJ.
-    Cela évite de confondre F4MAJ-B avec le module B.
-    """
     parser = SimpleTableParser()
     parser.feed(source)
 
@@ -185,14 +172,13 @@ def get_status() -> dict[str, str | None]:
         }
 
     text = html_to_text(source)
-    upper = text.upper()
 
     callsign_pattern = re.compile(
         r"\b" + re.escape(CALLSIGN) + r"(?:-[A-Z0-9])?\b",
         re.IGNORECASE,
     )
 
-    if not callsign_pattern.search(upper):
+    if not callsign_pattern.search(text):
         return {
             "state": "OFFLINE",
             "module": None,

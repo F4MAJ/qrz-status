@@ -36,10 +36,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet docs/xlx208c-f4maj.svg; then
+          git add docs/xlx208c-f4maj.svg
+
+          if git diff --cached --quiet; then
             echo "No XLX208C badge change."
           else
-            git add docs/xlx208c-f4maj.svg
             git commit -m "Update XLX208C badge"
             git push
           fi

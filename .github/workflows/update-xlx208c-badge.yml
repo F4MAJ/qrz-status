@@ -1,0 +1,45 @@
+name: Update XLX208C badge
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    # Toutes les 10 minutes environ, décalé du badge XLX933
+    # Horaires en UTC
+    - cron: "7,17,27,37,47,57 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-xlx208c-badge
+  cancel-in-progress: false
+
+jobs:
+  update-xlx208c-badge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Update XLX208C badge
+        run: python scripts/update_xlx208c_badge.py
+
+      - name: Commit XLX208C badge if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet docs/xlx208c-f4maj.svg; then
+            echo "No XLX208C badge change."
+          else
+            git add docs/xlx208c-f4maj.svg
+            git commit -m "Update XLX208C badge"
+            git push
+          fi

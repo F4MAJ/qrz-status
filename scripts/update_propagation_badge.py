@@ -7,6 +7,7 @@ Badge dynamique Propagation HF F4MAJ pour QRZ.
 Version V1 :
 - sources : HamQSL/N0NBH + NOAA/SWPC
 - indicateurs : SFI, Kp, A-index, X-Ray, tendance HF, radio en extérieur
+- affichage X-Ray amélioré : Classe A/B/C/M/X au lieu d'une seule lettre
 - mise à jour : date/heure réelle de génération GitHub Actions
 - sortie : docs/propagation-f4maj.svg
 """
@@ -16,7 +17,6 @@ from __future__ import annotations
 import html
 import json
 import re
-import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime
@@ -48,7 +48,7 @@ def fetch_text(url: str, timeout: int = 25) -> str:
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "F4MAJ-QRZ-Propagation-Badge/1.0",
+            "User-Agent": "F4MAJ-QRZ-Propagation-Badge/1.1",
             "Accept": "application/json,text/xml,application/xml,text/plain,*/*",
             "Cache-Control": "no-cache",
             "Pragma": "no-cache",
@@ -159,10 +159,24 @@ def fetch_noaa_kp() -> dict[str, Any]:
         }
 
 
+def xray_flux_to_class(flux: float) -> str:
+    if flux >= 1e-4:
+        return "X"
+    if flux >= 1e-5:
+        return "M"
+    if flux >= 1e-6:
+        return "C"
+    if flux >= 1e-7:
+        return "B"
+    if flux >= 1e-8:
+        return "A"
+    return "Très faible"
+
+
 def fetch_noaa_xray() -> dict[str, Any]:
     """
     Lecture simple du dernier flux X-Ray disponible.
-    On affiche une classe indicative B/C/M/X si possible.
+    On affiche une classe indicative A/B/C/M/X si possible.
     """
     try:
         text = fetch_text(NOAA_XRAY_URL)
@@ -171,7 +185,6 @@ def fetch_noaa_xray() -> dict[str, Any]:
         if not isinstance(payload, list) or not payload:
             return {"ok": False, "class": "", "flux": None, "time": "", "error": "Format X-Ray NOAA inattendu"}
 
-        # On prend la dernière entrée avec flux valide.
         for item in reversed(payload):
             if not isinstance(item, dict):
                 continue
@@ -201,20 +214,6 @@ def fetch_noaa_xray() -> dict[str, Any]:
             "time": "",
             "error": str(exc),
         }
-
-
-def xray_flux_to_class(flux: float) -> str:
-    if flux >= 1e-4:
-        return "X"
-    if flux >= 1e-5:
-        return "M"
-    if flux >= 1e-6:
-        return "C"
-    if flux >= 1e-7:
-        return "B"
-    if flux >= 1e-8:
-        return "A"
-    return "Très faible"
 
 
 def condition_from_kp(kp: Optional[float]) -> tuple[str, str]:
@@ -339,7 +338,9 @@ def build_svg(data: dict[str, Any]) -> str:
     sfi = format_num(data.get("sfi"), 0)
     kp = format_num(data.get("kp"), 1)
     aindex = format_num(data.get("aindex"), 0)
+
     xray = normalize(data.get("xray")) or "--"
+    xray_display = f"Classe {xray}" if xray in ("A", "B", "C", "M", "X") else xray
 
     geomag = normalize(data.get("geomag")) or "--"
     hf_status = normalize(data.get("hf_status")) or "--"
@@ -373,7 +374,7 @@ def build_svg(data: dict[str, Any]) -> str:
     </filter>
   </defs>
 
-  <!-- Badge propagation F4MAJ V1 / génération : {svg_escape(generated)} -->
+  <!-- Badge propagation F4MAJ V1.1 / génération : {svg_escape(generated)} -->
 
   <rect x="1" y="1" width="1198" height="270" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
@@ -411,7 +412,7 @@ def build_svg(data: dict[str, Any]) -> str:
   <!-- Carte X-Ray -->
   <rect x="592" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="613" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">⚡ X-Ray</text>
-  <text x="612" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{svg_escape(xray)}</text>
+  <text x="612" y="158" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" fill="#ffffff">{svg_escape(xray_display)}</text>
 
   <!-- Carte Geomag -->
   <rect x="780" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>

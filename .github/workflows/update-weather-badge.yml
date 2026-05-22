@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
 
   schedule:
-    # Toutes les 2 heures environ
-    # Horaires en UTC
-    - cron: "11 */2 * * *"
+    # Mise à jour météo plusieurs fois par jour, en UTC.
+    # En heure française d'été : environ 06h17, 08h17, 10h17, 12h17, 14h17, 16h17, 18h17, 20h17, 22h17.
+    # Le choix de :17 évite les minutes trop chargées du début d'heure.
+    - cron: "17 4,6,8,10,12,14,16,18,20 * * *"
 
 permissions:
   contents: write
@@ -36,10 +37,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet docs/meteo-f4maj.svg; then
+          git add docs/meteo-f4maj.svg
+
+          if git diff --cached --quiet; then
             echo "No weather badge change."
           else
-            git add docs/meteo-f4maj.svg
             git commit -m "Update weather badge"
             git push
           fi

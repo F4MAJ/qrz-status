@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
 
   schedule:
-    # Mise à jour météo plusieurs fois par jour, en UTC.
-    # En heure française d'été : environ 06h17, 08h17, 10h17, 12h17, 14h17, 16h17, 18h17, 20h17, 22h17.
-    # Le choix de :17 évite les minutes trop chargées du début d'heure.
-    - cron: "17 4,6,8,10,12,14,16,18,20 * * *"
+    # Mise à jour météo automatique toutes les heures, minute 17 UTC.
+    # En France : environ xxh17, avec décalage selon heure été/hiver.
+    # La minute 17 évite le début d'heure, souvent plus chargé côté GitHub Actions.
+    - cron: "17 * * * *"
 
 permissions:
   contents: write

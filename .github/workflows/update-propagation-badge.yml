@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
 
   schedule:
-    # Mise à jour quotidienne vers 08h23 heure française d'été
-    # GitHub Actions utilise l'heure UTC
-    # La minute 23 évite le début d'heure, souvent plus chargé
-    - cron: "23 6 * * *"
+    # Mise à jour propagation automatique toutes les heures, minute 23 UTC.
+    # En France : environ xxh23, avec décalage selon heure été/hiver.
+    # La minute 23 évite le début d'heure, souvent plus chargé côté GitHub Actions.
+    - cron: "23 * * * *"
 
 permissions:
   contents: write

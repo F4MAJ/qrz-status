@@ -4,11 +4,11 @@
 """
 Badge dynamique Propagation HF F4MAJ pour QRZ.
 
-Version V1 :
+Version V1.2 :
 - sources : HamQSL/N0NBH + NOAA/SWPC
 - indicateurs : SFI, Kp, A-index, X-Ray, tendance HF, radio en extérieur
-- affichage X-Ray amélioré : Classe A/B/C/M/X au lieu d'une seule lettre
-- mise à jour : date/heure réelle de génération GitHub Actions
+- affichage X-Ray : Classe A/B/C/M/X
+- libellé mise à jour corrigé : auto horaire • minute 23
 - sortie : docs/propagation-f4maj.svg
 """
 
@@ -48,7 +48,7 @@ def fetch_text(url: str, timeout: int = 25) -> str:
     request = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "F4MAJ-QRZ-Propagation-Badge/1.1",
+            "User-Agent": "F4MAJ-QRZ-Propagation-Badge/1.2",
             "Accept": "application/json,text/xml,application/xml,text/plain,*/*",
             "Cache-Control": "no-cache",
             "Pragma": "no-cache",
@@ -114,10 +114,6 @@ def fetch_hamqsl_data() -> dict[str, Any]:
 
 
 def fetch_noaa_kp() -> dict[str, Any]:
-    """
-    NOAA Kp JSON généralement sous forme de tableau :
-    première ligne = entêtes, lignes suivantes = données.
-    """
     try:
         text = fetch_text(NOAA_KP_URL)
         payload = json.loads(text)
@@ -174,10 +170,6 @@ def xray_flux_to_class(flux: float) -> str:
 
 
 def fetch_noaa_xray() -> dict[str, Any]:
-    """
-    Lecture simple du dernier flux X-Ray disponible.
-    On affiche une classe indicative A/B/C/M/X si possible.
-    """
     try:
         text = fetch_text(NOAA_XRAY_URL)
         payload = json.loads(text)
@@ -374,7 +366,7 @@ def build_svg(data: dict[str, Any]) -> str:
     </filter>
   </defs>
 
-  <!-- Badge propagation F4MAJ V1.1 / génération : {svg_escape(generated)} -->
+  <!-- Badge propagation F4MAJ V1.2 / génération : {svg_escape(generated)} -->
 
   <rect x="1" y="1" width="1198" height="270" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
@@ -394,50 +386,41 @@ def build_svg(data: dict[str, Any]) -> str:
     Mise à jour badge : {svg_escape(generated)}
   </text>
 
-  <!-- Carte SFI -->
   <rect x="28" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="49" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">☀️ SFI</text>
   <text x="48" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{svg_escape(sfi)}</text>
 
-  <!-- Carte Kp -->
   <rect x="216" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="237" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">🧭 Kp</text>
   <text x="236" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{svg_escape(kp)}</text>
 
-  <!-- Carte A-index -->
   <rect x="404" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="425" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">📊 A-index</text>
   <text x="424" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">{svg_escape(aindex)}</text>
 
-  <!-- Carte X-Ray -->
   <rect x="592" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="613" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">⚡ X-Ray</text>
   <text x="612" y="158" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" fill="#ffffff">{svg_escape(xray_display)}</text>
 
-  <!-- Carte Geomag -->
   <rect x="780" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="801" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">🌍 Géomag</text>
   <text x="800" y="158" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" fill="{geomag_color}">{svg_escape(geomag)}</text>
 
-  <!-- Carte Mise à jour -->
   <rect x="968" y="96" width="202" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="990" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">🕘 Mise à jour</text>
   <text x="990" y="151" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="#ffffff">{svg_escape(generated)}</text>
-  <text x="990" y="171" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#bfdbfe">auto quotidienne vers 08h</text>
+  <text x="990" y="171" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#bfdbfe">auto horaire • minute 23</text>
 
-  <!-- Synthèse HF -->
   <rect x="28" y="198" width="360" height="50" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="50" y="222" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">HF générale</text>
   <text x="184" y="222" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="{hf_color}">{svg_escape(hf_status)}</text>
   <text x="50" y="241" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">{svg_escape(hf_note)}</text>
 
-  <!-- Radio en extérieur -->
   <rect x="408" y="198" width="360" height="50" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="430" y="222" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">Radio extérieur / Portable</text>
   <text x="640" y="222" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="{portable_color}">{svg_escape(portable_status)}</text>
   <text x="430" y="241" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">{svg_escape(portable_note)}</text>
 
-  <!-- Source mesure -->
   <rect x="788" y="198" width="382" height="50" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="810" y="222" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">Mesure source</text>
   <text x="810" y="242" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">{svg_escape(measure_line)}</text>

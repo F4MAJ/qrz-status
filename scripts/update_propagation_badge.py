@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
+'''
 Badge dynamique Propagation HF F4MAJ pour QRZ.
 
-Version V1.2 :
+Version V1.2 propre :
 - sources : HamQSL/N0NBH + NOAA/SWPC
 - indicateurs : SFI, Kp, A-index, X-Ray, tendance HF, radio en extérieur
 - affichage X-Ray : Classe A/B/C/M/X
-- libellé mise à jour corrigé : auto horaire • minute 23
+- libellé mise à jour : auto horaire • minute 23
 - sortie : docs/propagation-f4maj.svg
-"""
+'''
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ NOAA_KP_URL = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.js
 NOAA_XRAY_URL = "https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json"
 
 SOURCE_LABEL = "Sources : NOAA/SWPC + HamQSL/N0NBH"
+UPDATE_LABEL = "auto horaire • minute 23"
 
 
 def now_fr() -> str:
@@ -100,17 +101,9 @@ def fetch_hamqsl_data() -> dict[str, Any]:
     try:
         text = fetch_text(HAMQSL_XML_URL)
         parsed = parse_hamqsl_xml(text)
-        return {
-            "ok": True,
-            "data": parsed,
-            "error": "",
-        }
+        return {"ok": True, "data": parsed, "error": ""}
     except Exception as exc:
-        return {
-            "ok": False,
-            "data": {},
-            "error": str(exc),
-        }
+        return {"ok": False, "data": {}, "error": str(exc)}
 
 
 def fetch_noaa_kp() -> dict[str, Any]:
@@ -147,12 +140,7 @@ def fetch_noaa_kp() -> dict[str, Any]:
         }
 
     except Exception as exc:
-        return {
-            "ok": False,
-            "kp": None,
-            "time": "",
-            "error": str(exc),
-        }
+        return {"ok": False, "kp": None, "time": "", "error": str(exc)}
 
 
 def xray_flux_to_class(flux: float) -> str:
@@ -188,30 +176,17 @@ def fetch_noaa_xray() -> dict[str, Any]:
             observed = normalize(item.get("time_tag") or item.get("time") or "")
             x_class = xray_flux_to_class(flux)
 
-            return {
-                "ok": True,
-                "class": x_class,
-                "flux": flux,
-                "time": observed,
-                "error": "",
-            }
+            return {"ok": True, "class": x_class, "flux": flux, "time": observed, "error": ""}
 
         return {"ok": False, "class": "", "flux": None, "time": "", "error": "Aucun flux X-Ray valide"}
 
     except Exception as exc:
-        return {
-            "ok": False,
-            "class": "",
-            "flux": None,
-            "time": "",
-            "error": str(exc),
-        }
+        return {"ok": False, "class": "", "flux": None, "time": "", "error": str(exc)}
 
 
 def condition_from_kp(kp: Optional[float]) -> tuple[str, str]:
     if kp is None:
         return "Non dispo", "Indicateur Kp non disponible"
-
     if kp < 3:
         return "Calme", "Champ géomagnétique calme"
     if kp < 5:
@@ -224,32 +199,24 @@ def condition_from_kp(kp: Optional[float]) -> tuple[str, str]:
 def hf_trend(sfi: Optional[float], kp: Optional[float], xray_class: str) -> tuple[str, str]:
     if kp is not None and kp >= 6:
         return "Difficile", "Kp élevé, HF possiblement instable"
-
     if xray_class in ("M", "X"):
         return "À surveiller", "Risque de blackout HF côté jour"
-
     if sfi is not None and sfi >= 130 and (kp is None or kp < 4):
         return "Favorable", "Bon potentiel HF, surtout bandes hautes"
-
     if sfi is not None and sfi >= 90 and (kp is None or kp < 5):
         return "Correcte", "Conditions HF utilisables"
-
     if kp is not None and kp >= 4:
         return "Moyenne", "Propagation variable"
-
     return "Moyenne", "Conditions indicatives normales"
 
 
 def portable_trend(kp: Optional[float], xray_class: str) -> tuple[str, str]:
     if kp is not None and kp >= 6:
         return "À éviter", "Perturbations fortes possibles"
-
     if xray_class in ("M", "X"):
         return "À surveiller", "Risque de coupure HF côté jour"
-
     if kp is not None and kp >= 4:
         return "Correcte", "Sortie possible, conditions variables"
-
     return "Favorable", "Bon contexte radio en extérieur"
 
 
@@ -302,27 +269,19 @@ def collect_data() -> dict[str, Any]:
         "hamqsl_ok": bool(hamqsl.get("ok")),
         "noaa_kp_ok": bool(noaa_kp.get("ok")),
         "noaa_xray_ok": bool(noaa_xray.get("ok")),
-        "hamqsl_error": hamqsl.get("error") or "",
-        "noaa_kp_error": noaa_kp.get("error") or "",
-        "noaa_xray_error": noaa_xray.get("error") or "",
     }
 
 
 def status_color(status: str) -> str:
     lowered = status.lower()
-
     if "favorable" in lowered or "calme" in lowered:
         return "#22c55e"
-
     if "correct" in lowered or "moyenne" in lowered or "instable" in lowered:
         return "#fbbf24"
-
     if "surveiller" in lowered or "perturb" in lowered:
         return "#f97316"
-
     if "difficile" in lowered or "tempête" in lowered or "éviter" in lowered:
         return "#ef4444"
-
     return "#38bdf8"
 
 
@@ -355,12 +314,10 @@ def build_svg(data: dict[str, Any]) -> str:
       <stop offset="0%" stop-color="#0f172a"/>
       <stop offset="100%" stop-color="#1e293b"/>
     </linearGradient>
-
     <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#172033"/>
       <stop offset="100%" stop-color="#111827"/>
     </linearGradient>
-
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.35"/>
     </filter>
@@ -370,21 +327,11 @@ def build_svg(data: dict[str, Any]) -> str:
 
   <rect x="1" y="1" width="1198" height="270" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
-  <text x="28" y="39" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">
-    Propagation HF F4MAJ
-  </text>
+  <text x="28" y="39" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">Propagation HF F4MAJ</text>
+  <text x="28" y="70" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="500" fill="#dbeafe">Aperçu indicatif radioamateur — données solaires, géomagnétiques et tendance HF</text>
 
-  <text x="28" y="70" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="500" fill="#dbeafe">
-    Aperçu indicatif radioamateur — données solaires, géomagnétiques et tendance HF
-  </text>
-
-  <text x="842" y="39" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#fbbf24">
-    {svg_escape(SOURCE_LABEL)}
-  </text>
-
-  <text x="842" y="68" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
-    Mise à jour badge : {svg_escape(generated)}
-  </text>
+  <text x="842" y="39" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#fbbf24">{svg_escape(SOURCE_LABEL)}</text>
+  <text x="842" y="68" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">Mise à jour badge : {svg_escape(generated)}</text>
 
   <rect x="28" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="49" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">☀️ SFI</text>
@@ -409,7 +356,7 @@ def build_svg(data: dict[str, Any]) -> str:
   <rect x="968" y="96" width="202" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="990" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">🕘 Mise à jour</text>
   <text x="990" y="151" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="#ffffff">{svg_escape(generated)}</text>
-  <text x="990" y="171" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#bfdbfe">auto horaire • minute 23</text>
+  <text x="990" y="171" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#bfdbfe">{svg_escape(UPDATE_LABEL)}</text>
 
   <rect x="28" y="198" width="360" height="50" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="50" y="222" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">HF générale</text>
@@ -439,24 +386,11 @@ def build_error_svg(message: str) -> str:
       <stop offset="100%" stop-color="#1e293b"/>
     </linearGradient>
   </defs>
-
   <rect x="1" y="1" width="1198" height="168" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
-
-  <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">
-    Propagation HF F4MAJ
-  </text>
-
-  <text x="28" y="78" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="#fbbf24">
-    Vérification propagation temporairement indisponible
-  </text>
-
-  <text x="28" y="110" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
-    {safe_message}
-  </text>
-
-  <text x="28" y="138" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
-    Dernier essai : {svg_escape(generated)}
-  </text>
+  <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">Propagation HF F4MAJ</text>
+  <text x="28" y="78" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="#fbbf24">Vérification propagation temporairement indisponible</text>
+  <text x="28" y="110" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">{safe_message}</text>
+  <text x="28" y="138" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">Dernier essai : {svg_escape(generated)}</text>
 </svg>
 '''
 

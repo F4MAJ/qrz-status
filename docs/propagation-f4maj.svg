@@ -15,7 +15,7 @@
     </filter>
   </defs>
 
-  <!-- Badge propagation F4MAJ V1.1 / génération : 28/05/2026 15:05 -->
+  <!-- Badge propagation F4MAJ V1.2 / génération : 28/05/2026 15:12 -->
 
   <rect x="1" y="1" width="1198" height="270" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
@@ -32,54 +32,45 @@
   </text>
 
   <text x="842" y="68" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
-    Mise à jour badge : 28/05/2026 15:05
+    Mise à jour badge : 28/05/2026 15:12
   </text>
 
-  <!-- Carte SFI -->
   <rect x="28" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="49" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">☀️ SFI</text>
   <text x="48" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">142</text>
 
-  <!-- Carte Kp -->
   <rect x="216" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="237" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">🧭 Kp</text>
   <text x="236" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">2.0</text>
 
-  <!-- Carte A-index -->
   <rect x="404" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="425" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">📊 A-index</text>
   <text x="424" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">11</text>
 
-  <!-- Carte X-Ray -->
   <rect x="592" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="613" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">⚡ X-Ray</text>
   <text x="612" y="158" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="800" fill="#ffffff">Classe X</text>
 
-  <!-- Carte Geomag -->
   <rect x="780" y="96" width="174" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="801" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">🌍 Géomag</text>
   <text x="800" y="158" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" fill="#22c55e">Calme</text>
 
-  <!-- Carte Mise à jour -->
   <rect x="968" y="96" width="202" height="86" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="990" y="125" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">🕘 Mise à jour</text>
-  <text x="990" y="151" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="#ffffff">28/05/2026 15:05</text>
-  <text x="990" y="171" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#bfdbfe">auto quotidienne vers 08h</text>
+  <text x="990" y="151" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="800" fill="#ffffff">28/05/2026 15:12</text>
+  <text x="990" y="171" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="500" fill="#bfdbfe">auto horaire • minute 23</text>
 
-  <!-- Synthèse HF -->
   <rect x="28" y="198" width="360" height="50" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="50" y="222" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">HF générale</text>
   <text x="184" y="222" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="#f97316">À surveiller</text>
   <text x="50" y="241" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Risque de blackout HF côté jour</text>
 
-  <!-- Radio en extérieur -->
   <rect x="408" y="198" width="360" height="50" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="430" y="222" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">Radio extérieur / Portable</text>
   <text x="640" y="222" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="#f97316">À surveiller</text>
   <text x="430" y="241" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Risque de coupure HF côté jour</text>
 
-  <!-- Source mesure -->
   <rect x="788" y="198" width="382" height="50" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="810" y="222" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="#fbbf24">Mesure source</text>
-  <text x="810" y="242" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">HamQSL : 28 May 2026 1305 GMT</text>
+  <text x="810" y="242" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">HamQSL : 28 May 2026 1312 GMT</text>
 </svg>

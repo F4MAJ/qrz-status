@@ -1,0 +1,51 @@
+name: Update status badges
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    # Workflow de secours F4MAJ.
+    # Met à jour météo + propagation dans le même passage.
+    # Deux tentatives par heure : minute 07 et minute 37 UTC.
+    # Objectif : éviter les ratés GitHub Actions sur les schedules isolés.
+    - cron: "7,37 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-status-badges
+  cancel-in-progress: false
+
+jobs:
+  update-status-badges:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Update weather badge
+        run: python scripts/update_weather_badge.py
+
+      - name: Update propagation badge
+        run: python scripts/update_propagation_badge.py
+
+      - name: Commit badges if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add docs/meteo-f4maj.svg docs/propagation-f4maj.svg
+
+          if git diff --cached --quiet; then
+            echo "No badge change."
+          else
+            git commit -m "Update status badges"
+            git push
+          fi

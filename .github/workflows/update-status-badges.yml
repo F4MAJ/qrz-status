@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
 
   schedule:
-    # Workflow de secours F4MAJ.
-    # Met à jour météo + propagation dans le même passage.
+    # Workflow principal F4MAJ.
+    # Met à jour tous les badges QRZ dans un seul passage.
     # Deux tentatives par heure : minute 07 et minute 37 UTC.
-    # Objectif : éviter les ratés GitHub Actions sur les schedules isolés.
+    # Objectif : éviter les ratés et les conflits entre workflows séparés.
     - cron: "7,37 * * * *"
 
 permissions:
@@ -36,16 +36,25 @@ jobs:
       - name: Update propagation badge
         run: python scripts/update_propagation_badge.py
 
-      - name: Commit badges if changed
+      - name: Update D-STAR XLX933 badge
+        run: python scripts/update_dstar_badge.py
+
+      - name: Update XLX208C badge
+        run: python scripts/update_xlx208c_badge.py
+
+      - name: Commit all badges if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add docs/meteo-f4maj.svg docs/propagation-f4maj.svg
+          git add docs/meteo-f4maj.svg
+          git add docs/propagation-f4maj.svg
+          git add docs/dstar-f4maj.svg
+          git add docs/xlx208c-f4maj.svg
 
           if git diff --cached --quiet; then
             echo "No badge change."
           else
-            git commit -m "Update status badges"
+            git commit -m "Update all status badges"
             git push
           fi

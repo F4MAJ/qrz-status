@@ -15,7 +15,7 @@
     </filter>
   </defs>
 
-  <!-- Badge météo F4MAJ V3 / génération : 29/06/2026 22:15 -->
+  <!-- Badge météo F4MAJ V3 / génération : 29/06/2026 22:26 -->
 
   <rect x="1" y="1" width="1198" height="234" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
@@ -60,7 +60,7 @@
   <!-- Carte Mise à jour -->
   <rect x="888" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="911" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">🕘 Mise à jour</text>
-  <text x="902" y="151" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#ffffff">29/06/2026 22:15</text>
+  <text x="902" y="151" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#ffffff">29/06/2026 22:26</text>
   <text x="902" y="174" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Mesure : 29/06/2026 22:15</text>
   <text x="902" y="188" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Pluie : 0.0 mm</text>
 

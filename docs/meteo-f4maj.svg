@@ -6,7 +6,7 @@
     </linearGradient>
   </defs>
 
-  <!-- Badge météo F4MAJ V3 erreur / génération : 03/07/2026 23:16 -->
+  <!-- Badge météo F4MAJ V3 erreur / génération : 03/07/2026 23:33 -->
 
   <rect x="1" y="1" width="1198" height="154" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
 
@@ -23,6 +23,6 @@
   </text>
 
   <text x="28" y="132" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
-    Dernier essai : 03/07/2026 23:16
+    Dernier essai : 03/07/2026 23:33
   </text>
 </svg>

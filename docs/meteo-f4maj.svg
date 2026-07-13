@@ -15,7 +15,7 @@
     </filter>
   </defs>
 
-  <!-- Badge météo F4MAJ V3 / génération : 13/07/2026 02:11 -->
+  <!-- Badge météo F4MAJ V3 / génération : 13/07/2026 05:44 -->
 
   <rect x="1" y="1" width="1198" height="234" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2" filter="url(#shadow)"/>
 
@@ -24,7 +24,7 @@
   </text>
 
   <text x="28" y="70" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="500" fill="#dbeafe">
-    Illzach • JN37QS • aperçu météo automatique — Ciel clair
+    Illzach • JN37QS • aperçu météo automatique — Couvert
   </text>
 
   <text x="848" y="39" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="#fbbf24">
@@ -38,19 +38,19 @@
   <!-- Carte Température -->
   <rect x="28" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="51" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">🌡️ Température</text>
-  <text x="47" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">21.8 °C</text>
-  <text x="47" y="184" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">Ressenti : 20.7 °C</text>
+  <text x="47" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">18.6 °C</text>
+  <text x="47" y="184" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">Ressenti : 17.9 °C</text>
 
   <!-- Carte Humidité -->
   <rect x="243" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="266" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">💧 Humidité</text>
-  <text x="261" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">47 %</text>
+  <text x="261" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">60 %</text>
 
   <!-- Carte Vent -->
   <rect x="458" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="481" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">🌬️ Vent</text>
-  <text x="476" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">8 km/h</text>
-  <text x="476" y="184" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">Direction : 3°</text>
+  <text x="476" y="158" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">6 km/h</text>
+  <text x="476" y="184" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">Direction : 27°</text>
 
   <!-- Carte Pression -->
   <rect x="673" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
@@ -60,8 +60,8 @@
   <!-- Carte Mise à jour -->
   <rect x="888" y="96" width="201" height="96" rx="15" fill="url(#card)" stroke="#334155" stroke-width="1.5"/>
   <text x="911" y="125" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" fill="#fbbf24">🕘 Mise à jour</text>
-  <text x="902" y="151" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#ffffff">13/07/2026 02:11</text>
-  <text x="902" y="174" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Mesure : 13/07/2026 02:00</text>
+  <text x="902" y="151" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="800" fill="#ffffff">13/07/2026 05:44</text>
+  <text x="902" y="174" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Mesure : 13/07/2026 05:30</text>
   <text x="902" y="188" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="500" fill="#bfdbfe">Pluie : 0.0 mm</text>
 
   <text x="28" y="222" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#bfdbfe">

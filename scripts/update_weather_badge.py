@@ -12,12 +12,16 @@ Version V3 :
 - largeur SVG augmentée à 1200 px pour éviter les débordements à droite
 - texte haut droit et ligne basse raccourcis pour éviter toute coupure
 - sortie : docs/meteo-f4maj.svg
+- en cas d’erreur de source, conserver le dernier badge sans modifier sa date
 """
 
 from __future__ import annotations
 
 import html
 import json
+import math
+import os
+import tempfile
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -217,51 +221,43 @@ def build_svg(data: dict) -> str:
 '''
 
 
-def build_error_svg(message: str) -> str:
-    badge_update_time = generated_time()
-    safe_message = svg_escape(message)
-
-    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="156" viewBox="0 0 1200 156" role="img" aria-label="Météo F4MAJ indisponible">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="100%" stop-color="#1e293b"/>
-    </linearGradient>
-  </defs>
-
-  <!-- Badge météo F4MAJ V3 erreur / génération : {svg_escape(badge_update_time)} -->
-
-  <rect x="1" y="1" width="1198" height="154" rx="22" fill="url(#bg)" stroke="#334155" stroke-width="2"/>
-
-  <text x="28" y="42" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="800" fill="#ffffff">
-    Météo live au QRA F4MAJ
-  </text>
-
-  <text x="28" y="78" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="#fbbf24">
-    Vérification météo temporairement indisponible
-  </text>
-
-  <text x="28" y="108" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
-    {safe_message}
-  </text>
-
-  <text x="28" y="132" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="500" fill="#bfdbfe">
-    Dernier essai : {svg_escape(badge_update_time)}
-  </text>
-</svg>
-'''
+def validate_weather(data: dict) -> None:
+    """Do not replace a good badge with an empty or invalid source response."""
+    if not isinstance(data, dict) or data.get("error"):
+        raise ValueError("Invalid weather source response")
+    current = data.get("current")
+    if not isinstance(current, dict):
+        raise ValueError("Missing current weather")
+    if not isinstance(current.get("time"), str):
+        raise ValueError("Missing weather measurement time")
+    datetime.fromisoformat(current["time"])
+    for field in (
+        "temperature_2m", "relative_humidity_2m", "apparent_temperature",
+        "weather_code", "pressure_msl", "wind_speed_10m",
+        "wind_direction_10m", "precipitation",
+    ):
+        value = current.get(field)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"Missing or invalid weather field: {field}")
+        if not math.isfinite(value):
+            raise ValueError(f"Non-finite weather field: {field}")
 
 
 def main() -> int:
     try:
         data = fetch_weather()
+        validate_weather(data)
         svg = build_svg(data)
         current = data.get("current", {})
         print(f"Weather source time: {current.get('time') or '-'}")
         print(f"Badge generated time: {generated_time()}")
     except Exception as exc:
         print(f"Weather update failed: {exc}")
-        svg = build_error_svg(str(exc))
+        if OUTPUT_FILE.is_file():
+            print(f"Keeping existing weather badge unchanged: {OUTPUT_FILE}")
+            return 0
+        print("No existing weather badge to keep; no error SVG written.")
+        return 1
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
@@ -271,10 +267,23 @@ def main() -> int:
         print("No weather badge change.")
         return 0
 
-    OUTPUT_FILE.write_text(svg, encoding="utf-8")
+    # Replace only after the complete SVG has been written successfully.
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=OUTPUT_FILE.parent,
+            prefix=OUTPUT_FILE.name + ".", suffix=".tmp", delete=False,
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(svg)
+        os.replace(temporary_path, OUTPUT_FILE)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
     print(f"Weather badge updated: {OUTPUT_FILE}")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
